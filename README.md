@@ -1,4 +1,6 @@
 # SCRWolfFrance
-Data and code to reproduce the analysis contained in the paper Estimating wolf population size in France "using non-invasive genetic sampling and spatial capture recapture model"s
-R script 'Setup.R' allows to reproduce all steps to format the data and covariates to run the model.
-R script 'Run.R' build and run the nimble model. 
+Data and code to reproduce the analysis contained in the paper from Milleret et al. Estimating wolf population size in France "using non-invasive genetic sampling and spatial capture recapture model"s
+R script '/Data/Script.R' allows to reproduce all steps to:
+1. Format the data and the covariates to run the model.
+2. Build and run the nimble model.
+3. Reproduce and plot the results as in the published paper. 

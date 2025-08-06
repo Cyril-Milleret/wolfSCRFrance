@@ -951,7 +951,7 @@ nimConstants <- list( M = dim(ySparse$yCombined)[1],
 ## ==== 16. BUILD AND FIT MODEL  ====
 ## ==== 17. NIMPARAMETERS  ====
 nimParams <- c("N","sigma","psi",
-               "p0", "habCoeffSlope","betaTraps","teta","probMale","indBetas")
+               "p0", "habCoeffSlope","betaTraps","teta","probMale","indBetas","NFrance")
 # SAVE LESS ITERATIONS FOR AC LOCAITON AND INDIVIDUAL STATES
 nimParams2 <- c("sxy","z")
 
@@ -978,10 +978,9 @@ model$initializeInfo()
 ## ====   19.2 SOME CHECKS AND THE REST  ====
 cmodel <- compileNimble(model)
 MCMCconf <- configureMCMC(model = model,
-                          monitors  = c("N","sigma","psi","p0",
-                                        "habCoeffSlope","betaTraps","probMale","deltap0","teta","NFrance"),
+                          monitors  = nimParams,
                           control = list(reflective = TRUE),
-                          monitors2= c("sxy","z","sex","indDet"),
+                          monitors2= nimParams2,
                           thin2 = 10,
                           thin = 1)
 MCMC <- buildMCMC(MCMCconf)
@@ -991,7 +990,7 @@ cMCMC <- compileNimble(MCMC, project = model, resetFunctions = TRUE)
 ## Run MCMC
 MCMCRuntime <- system.time(samples <- runMCMC( mcmc = cMCMC,
                                                nburnin = 100,
-                                               niter = 500,
+                                               niter = 500,#run for longer
                                                nchains = 2,
                                                samplesAsCodaMCMC = TRUE))
 
@@ -1004,8 +1003,12 @@ myResults$mean$NFrance
 myResults$q2.5$NFrance
 myResults$q97.5$NFrance
 
-
+#visual check of convergence
+basicMCMCplots::chainsPlot(samples$samples,"NFrance")
 ## reproduce figures ##
+hab.r <- habitat.r
+det.r <- detector.r
+
 ###map covariates###
 r1 <- r2 <- r3 <- r4 <- hab.r 
 r1[!is.na(hab.r)] <- nimData$habCovs[,1] 
@@ -1015,9 +1018,15 @@ r4[!is.na(hab.r)] <- nimData$habCovs[,4]
 
 
 box <- st_as_sfc(st_bbox(r1))
-
+#remove corisca
+gg <- st_cast(France,"POLYGON")
+gg$area <- st_area(gg) 
+gg <- gg[order(gg$area,decreasing = T),]
+#plot france 
+plot(gg[1,]$geometry,col=grey(0.8))
+#add legend 
 #### HABITAT 
-pdf(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/Figure/FigureS1HabCov.pdf",width = 9,height = 8)
+# pdf(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/Figure/FigureS1HabCov.pdf",width = 9,height = 8)
 par(mfrow=c(2,2),mar=c(1,1,1,1.5))
 plot(box,border=NA)
 plot(gg[1,]$geometry,col=grey(0.8),add=T)
@@ -1039,9 +1048,6 @@ plot(gg[1,]$geometry,col=grey(0.8),add=T)
 plot(r4,axes=F,box=F,col=map.pal("viridis",100),add=T)
 mtext("Forest")
 
-dev.off()
-
-
 ####DETECTORS 
 det.r <- myDetectors$maindetector.r
 habitat.pol <- sf::st_as_sf(stars::st_as_stars(hab.r), 
@@ -1051,7 +1057,7 @@ rdet1[!is.na(rdet1[])] <- nimData$trapCov[,1]
 rdet2[!is.na(rdet1[])]  <- nimData$trapCov[,2] 
 rdet3[!is.na(rdet1[])] <- nimData$trapCov[,3] 
 
-pdf(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/Figure/FigureS1DetCov.pdf",width = 9,height = 8)
+# pdf(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/Figure/FigureS1DetCov.pdf",width = 9,height = 8)
 par(mfrow=c(2,2),mar=c(1,1,1,1.5))
 plot(box,border=NA)
 plot(gg[1,]$geometry,col=grey(0.8),add=T)
@@ -1067,13 +1073,12 @@ plot(box,border=NA)
 plot(gg[1,]$geometry,col=grey(0.8),add=T)
 plot(rdet3,axes=F,box=F,col=map.pal("viridis",100),add=T)
 mtext("Roads")
-dev.off()
+# dev.off()
 
 
 ###########p0####
 ## ====     20.5.5 P0 #### 
-pdf(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/Figure/FigureS3P0.pdf",width = 9,height = 6)
-
+# pdf(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/Figure/FigureS3P0.pdf",width = 9,height = 6)
 det.rp0[!is.na(rdet1[])]  <- nimData$trapIntercept
 det.pol <- sf::st_as_sf(stars::st_as_stars(det.rp0), 
                         as_points = FALSE, merge = F)
@@ -1114,10 +1119,7 @@ plot(det.pol$geometry,col=adjustcolor(col[det.pol$layer],alpha.f = 0.8),cex=0.3,
 text(x=st_coordinates(st_centroid(det.pol))[,1],
      y=st_coordinates(st_centroid(det.pol))[,2],det.pol$layer,col=grey(1),font=2)
 
-dev.off()
 
-
-##
 ####DETECTORS 
 det.r <- myDetectors$maindetector.r
 habitat.pol <- sf::st_as_sf(stars::st_as_stars(hab.r), 
@@ -1127,287 +1129,13 @@ rdet1[!is.na(rdet1[])] <- nimData$trapCov[,1]
 rdet2[!is.na(rdet1[])]  <- nimData$trapCov[,2] 
 rdet3[!is.na(rdet1[])] <- nimData$trapCov[,3] 
 
-pdf(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/Figure/FigureS2DetCov.pdf",width = 9,height = 8)
+# pdf(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/Figure/FigureS2DetCov.pdf",width = 9,height = 8)
 par(mar=c(1,1,1,1.5))
 plot(box,border=NA)
 plot(gg[1,]$geometry,col=grey(0.8),add=T)
 plot(rdet1,axes=F,box=F,col=map.pal("viridis",100),add=T)
 mtext("Effort")
 
-dev.off()
-## ==== 20. PLOT  ====
-## ====   20.1 GET MCMC/POSTERIORS   ====
-c=1
-load(file.path(myVars$WD,"Output", myVars$modelName,
-          paste(unlist(strsplit(myVars$modelName, '_'))[1],"Chain", c, ".RData", sep = "")))
-
-outDirectories <- list.files(file.path(myVars$WD,"Output", myVars$modelName))[grep(paste("NimbleOutFOR",unlist(strsplit(myVars$modelName, '_'))[1],sep=""), list.files(file.path(myVars$WD,"Output", myVars$modelName)))]
-path.list <- file.path(myVars$WD,"Output", myVars$modelName, outDirectories)
-
-# Retrieve the minimum number of bites per chain
-numBites <- unlist(lapply(path.list, function(x){
-  files <- list.files(x)
-  files <- files[grep(".RData", files)]
-  length(files)
-}))
-minBites <- min(numBites)/2
-#DEFINE NUMBER OF ITERS TO REMOVE (BITE SIZE IS 250 ITERATIONS) 
-NSkipBites <- 30
-nthin <- 1
-nimOutput <- RUNTIME <-nimOutputsxy<- list()
-
-c=1
-
-for(p in length(path.list):1){
-  print(path.list[p])
-  outfiles <- list.files(path.list[p])
-  setwd(path.list[p])
-  out <- outsxy <- runtime <- list()#[CM]
-  for(x in NSkipBites:minBites){
-    print(x)
-    load(file.path( paste("bite_", x, ".RData", sep = "")))
-    runtime[[x]] <- RunTime[3] 
-    params.simple <- sapply(strsplit(colnames(this.sample), "\\["), "[", 1)
-    parmIndex <- which(! params.simple %in% c("sxy","z"))
-    nthins <- seq(1,dim(this.sample)[1], by=nthin)
-    out[[x]] <- this.sample[nthins,parmIndex]#[ ,parmIndex] 
-    if(sum(is.na(out[[x]]))>0){
-      out[[x]] <- out[[x]][-unique(which(is.na(out[[x]]),arr.ind = T)[,1]),]
-    }
-    load(file.path(paste("biteSxyZ_", x, ".RData", sep = "")))
-    outsxy[[x]] <- this.sampleSxyZ#[ ,parmIndex] 
-    
-    
-  }#x
-  RUNTIME[[p]] <- unlist(runtime)#[CM]
-  out.mx <- do.call(rbind, out)
-  nimOutput[[p]] <- as.mcmc(out.mx)
-  
-  out.mxsxy <- do.call(rbind, outsxy)
-  nimOutputsxy[[p]] <- as.mcmc(out.mxsxy)
-}#p
-
-# COMPILE AND PROCESS THE RESULTS 
-#MAIN PARAMETERS
-nimOutput <- as.mcmc.list(nimOutput)
-myResults <- ProcessCodaOutput(nimOutput,params.omit = c("sxy","z"))
-
-#SXY AND Z PARAMETERS
-nimOutputsxy <- as.mcmc.list(nimOutputsxy)
-myResultsSZ <- ProcessCodaOutput(nimOutputsxy,params.omit = c("sxy","z","sex","indDet"))
-dimnames(myResultsSZ$sims.list$sxy)[[3]] <- c("x","y")
-
-
-## ====   20.2 PLOT CHAINS AND CONVERGENCE   ====
-chainsPlot(nimOutput,
-           file=file.path(myVars$WD, "Output",myVars$modelName,paste("Chains_",unlist(strsplit(myVars$modelName, '_'))[1],".pdf",sep=""))
-           ,height = 15)
-
-#CHECK RHAT
-myResults$Rhat
-
-## ====   20.3 UNSCALE COORDINATES FOR PLOTTING  ====
-sRescaled <- scaleCoordsToHabitatGrid(coordsData = myResultsSZ$sims.list$sxy,
-                                      coordsHabitatGridCenter = habitatxy,
-                                      scaleToGrid = F)$coordsDataScaled
-
-#PLOT CHECK HTAT POSTERIORS FALLS IN HABITAT
-plot(habitat.r)
-i=1
-points(sRescaled[i,myResultsSZ$sims.list$z[i,]%in%1,2]~sRescaled[1,myResultsSZ$sims.list$z[i,]%in%1,1])
-
-
-## ====   20.4 ESTIMATE DENSITY  ====
-## ====      20.4.1 GET THE OBJECTS TO RUN THE DENSITY FUNCTION ====
-## IDENTIFY BUFFER AREA 
-plot(habitat.r)
-plot(areaSearched,add=T)
-habitatBuffer <- habitat.r
-id <- raster::extract(habitatBuffer, areaSearched, cellnumbers=T)[[1]][,1]
-habitatBuffer[id] <- 2
-plot(habitatBuffer)
-
-## SET RESOLUTION FOR EXTRACTION 
-habDensity.r <- raster::disaggregate(habitatBuffer, fact=2)
-habDensity.r[habDensity.r%in% 0] <- 1
-
-## GET OBJECTS FOR DENSITY EXTRACTION 
-densityInputCountries <- getDensityInput( regions = habDensity.r
-                                          , 
-                                          habitat = habDensity.r
-                                          ,
-                                          s = sRescaled
-                                          ,
-                                          plot.check = TRUE
-)
-dimnames(densityInputCountries$regions.rgmx)[[1]] <- c("Buffer","France")
-
-## ====      20.4.2 GET AC DENSITY USING C++ ====
-alive.states <- c(1)
-DensityCountriesRegions <- GetDensity_PD(
-      sx = densityInputCountries$sx,
-      sy =  densityInputCountries$sy,
-      z = myResultsSZ$sims.list$z,
-      IDmx = densityInputCountries$habitat.id,
-      aliveStates = alive.states,
-      regionID = densityInputCountries$regions.rgmx,
-      returnPosteriorCells = F)
-##
-##get density using the nimbleSCR function 
-## this will do the same thing but with nimbleSCR
-# ite <- 2
-# which(habDensity.r[]>1)
-# #
-# dens <- calculateDensity(s=myResultsSZ$sims.list$sxy[ite,,],
-#                          habitatGrid = nimConstants$habitatGrid,
-#                          indicator = myResultsSZ$sims.list$z[ite,],
-#                          numWindows = nimConstants$numHabWindows,
-#                          nIndividuals =nimConstants$M )
-# 
-# plot(habDensity.r)
-# plot(habitatxysf$geometry,add=T)
-#cellInFrance <- which(raster::extract(habDensity.r,habitatxysf)>1)
-
-save(cellInFrance,
-     file = file.path(myVars$WD,"Output", myVars$modelName,
-                      paste("cellInFrance", ".RData", sep = "")))
-
-# sum(dens[cellInFrance])
-# DensityCountriesRegions$PosteriorRegions[,ite]
-
-ScaledDetectors$coordsHabitatGridCenterScaled
-ScaledDetectors$coordsDataScaled
-
-
-
-## CHECK SUMMARY 
-DensityCountriesRegions$summary
-breaks = seq(range(DensityCountriesRegions$PosteriorRegions["France",])[1],
-             range(DensityCountriesRegions$PosteriorRegions["France",])[2],1)
-             
-quantile(DensityCountriesRegions$PosteriorRegions["France",],probs=c(0.025,0.975))
-
-hist1 <-hist(DensityCountriesRegions$PosteriorRegions["France",],main="Distribution des effectifs hiver 2023/24",
-     xlab="Effectifs",breaks	=breaks)
-probs <-hist1$counts/sum(hist1$counts)
-sum(probs[hist1$breaks<1014],na.rm = T)
-sum(probs[hist1$breaks>1021],na.rm = T)
-
-sum(probs[hist1$breaks%in%1022],na.rm = T)
-sum(probs[hist1$breaks%in%1013],na.rm = T)
-
-
-abline(v=DensityCountriesRegions$summary["France","mean"],col="red",lwd=2)
-abline(v=DensityCountriesRegions$summary["France","median"],col="blue",lwd=2)
-abline(v=DensityCountriesRegions$summary["France","mode"],col="orange",lwd=2)
-
-legend("topright",legend = c("mean","median","mode"),lty=c(1,1,1),col =c("red","blue","orange"))
-
-##prop of detected ids ##
-mean(length(unique(DNA$Id))/DensityCountriesRegions$PosteriorRegions["France",])
-quantile(length(unique(DNA$Id))/DensityCountriesRegions$PosteriorRegions["France",],probs=c(0.025,0.975))
-
-## PLOT CHECK 
-density.r <- habDensity.r
-
-#DensityCountriesRegions$MeanCell[1] <- 0
-density.r[!is.na(density.r[])] <- DensityCountriesRegions$MeanCell
-plot(density.r)
-plot(France$geometry,add=T)
-## ====      20.4.3 GET AC DENSITY OF AUGMENTED IDS USING C++ ====
-##get AC of augmented ids ##
-augID <- which(names(nimData$z)%in% "Augmented")
-
-DensityaugmCountriesRegions <- GetDensity_PD(
-  sx = densityInputCountries$sx[,augID],
-  sy =  densityInputCountries$sy[,augID],
-  z = myResultsSZ$sims.list$z[,augID],
-  IDmx = densityInputCountries$habitat.id,
-  aliveStates = alive.states,
-  regionID = densityInputCountries$regions.rgmx,
-  returnPosteriorCells = F)
-
-## CHECK SUMMARY 
-DensityaugmCountriesRegions$summary
-
-## PLOT CHECK 
-density.rAugm <- habDensity.r
-density.rAugm[!is.na(density.rAugm[])] <- DensityaugmCountriesRegions$MeanCell
-plot(density.rAugm)
-density.rAugmWthBuf <- density.rAugm
-density.rAugmWthBuf <- crop(density.rAugmWthBuf, areaSearched )
-density.rAugmWthBuf <- mask(density.rAugmWthBuf, France )
-
-# density.rAugmWthBuf[habitatBuffer[]%in% 0] <- NA
-plot(density.rAugmWthBuf)
-plot(France$geometry,add=T)
-
-## ====      20.4.4 GET DENSITY SPACE USED C++ ====
-habitatMask <- densityInputCountries$habitat.id
-habitatMask[!is.na(habitatMask)] <- 1
-#RESCALE SIGMA TO METERS
-sigma <- myResults$sims.list$sigma*res(habitat.r)[1]
-#RESCALE SIGMA TO THE HABITAT SCALE
-sigmaRescaled <- sigma/res(densityInputCountries$regions.r)[1]
-thinnediter <- seq(1,length(sigmaRescaled)[1],
-                   by=length(sigmaRescaled)[1]/dim(myResultsSZ$sims.list$z)[1])
-sigmaRescaled <- sigmaRescaled[thinnediter]
-
-### COMPUTE THE UD BASED FOR A FEW ITERATIONS
-iter <- sample(1:dim(densityInputCountries$sy)[1], 50)
-
-# BECAUSE SIGMA IS ESTIMATED SEPARATELY FOR MALES/FEMALES/STATE, WE HAVE TO DO IT SEPARATELY FOR EACH SEX AND STATE.
-spaceUSED <- GetSpaceUse( sx = densityInputCountries$sx[iter,],
-                          sy =  densityInputCountries$sy[iter,],
-                          z = myResultsSZ$sims.list$z[iter,],
-                          sigma = sigmaRescaled[iter],#,"F"],
-                          densityInputCountries$habitat.xy,
-                          aliveStates = alive.states,
-                          regionID = densityInputCountries$regions.rgmx,
-                          display_progress = T,
-                          returnPosteriorCells = T)
-#PLOT CHECK 
-SpaceUsed.r <- habDensity.r
-spaceUSED$MeanCell[1] <- 0
-SpaceUsed.r[!is.na(SpaceUsed.r[])] <- spaceUSED$MeanCell
-plot(SpaceUsed.r)
-plot(France$geometry,add=T)
-mapview::mapview(SpaceUsed.r)
-mapview::mapview(list(myData.alive$myData.sp))
-mapview::mapview(LCIEDistribution)
-
-#################################
-
-
-myResults$mean$indBetas
-myResults$q2.5$indBetas
-myResults$q97.5$indBetas
-
-##############################
-
-## ====   20.5  SUMMARY OF THE RESULTS VIOLINS ####
-pdf(file=file.path(myVars$WD,"output",myVars$modelName,paste("SummaryResults_",paste(unlist(strsplit(myVars$modelName, '_')))[1],
-                                                             ".pdf",sep="")))
-## ====     20.5.1 POP SIZE #### 
-plot(-1000,xlim=c(0,2), ylim=c(0,2000),ylab="Population size",xlab="",xaxt="n")
-t=1
-widthPolygon <- 0.1
-tmp <- DensityCountriesRegions$PosteriorRegions["France",]
-#N
-plotBars(x=tmp,
-         at = 1,
-         quantile = c(0.0275, 0.975),
-         quantile1 = c(0.25, 0.75),
-         widthBar = 0.1,
-         col = "red",
-         alpha= 0.5,
-         alpha1= 0.8
-         )
-#ADD THE VALUE TO THE PLOT 
-est <- DensityCountriesRegions$summary["France",]
-text(1.2,250,paste(est["95%CILow"],"-",est["95%CIHigh"], "\n",
-                   " median=",est["median"],
-                   " mean=", round(est["mean"],digits=2)))
 
 
 ## ====     20.5.2 SIGMA #### 
@@ -1556,335 +1284,4 @@ plotBars(x=tmp[,2],
          widthBar = 0.2,
          col = col[1],alpha= 0.5
 )
-
-
-#### PLOT DENSITY MAP ###
-plot(SpaceUsed.r)
-plot(France$geometry,add=T)
-
-dev.off()
-######
-myResults$q2.5$habCoeffSlope
-myResults$q97.5$habCoeffSlope
-
-myResults$q2.5$indBetas
-myResults$q97.5$indBetas
-
-myResults$q2.5$betaTraps
-myResults$q97.5$betaTraps
-
-
-myResults$q2.5$p0
-myResults$q97.5$p0
-
-
-mapview::mapview(SpaceUsed.r)
-mapview::mapview(density.r)
-# mapview::mapview(list(density.r,DNA))
-mapview::mapview(list(Departement,DNA))
-
-
-#chose a region 
-reg <- 1
-ite <- 1
-indCov <- c(1,1)#prev det ; sex
-idhab <- 1540
-s <- nimConstants$lowerHabCoords[idhab,]
-plot(nimConstants$lowerHabCoords[,2]~nimConstants$lowerHabCoords[,1])
-points(nimConstants$lowerHabCoords[idhab,2]~nimConstants$lowerHabCoords[idhab,1],col="red",pch=16)
-
-det <- 1
-iter <- sample(dim(myResults$sims.list$betaTraps)[1],500) 
-s <- myResultsSZ$sims.list$sxy
-z <- myResultsSZ$sims.list$z
-
-sAliveList <-lapply(1:length(iter), function(x){
-  s[x,z[x,]==1,]
-})
-maxAlive <-max(unlist(lapply(sAliveList, dim)))
-
-p <- array(NA,c(dim(nimData$trapCov)[1], length(iter)))#,maxAlive ))
- p0Trap <- array(NA,c(dim(nimData$trapCov)[1], length(iter) ))
-
-                     
-pdet <- numeric()
-#pdet <- array(NA, c(length(iter),maxAlive ))
-
-count <- 0
-#average trap conditions 
-trapCovMean <- colMeans(nimData$trapCov)
-
-for(ite in iter){
-  count <- count +1
-
-    
-for(det in 1:dim(nimData$trapCov)[1]){
-  p0Traps <- myResults$sims.list$p0[ite,nimData$trapIntercept[det]]
-  trapBetas <- myResults$sims.list$betaTraps[ite,]
-  indBetas <- myResults$sims.list$indBetas[ite,]
-  alpha <- -1/(2 * myResults$sims.list$sigma[ite] * myResults$sims.list$sigma[ite] )
-    
-  p0Trap[det,count] <- ilogit(logit(p0Traps) + 
-                     # inprod(trapBetas, nimData$trapCov[det,])+
-                       #asssume "average" spatial conditions 
-                     inprod(trapBetas, trapCovMean)+#[det,])+
-                     
-                    inprod(indBetas, indCov))
-
-}
-#   ss <- sAliveList[[count]]
-# for(s1 in 1:dim(ss)[1]){
-  # d2 <- pow(nimConstants$trapCoords[, 1] - ss[s1,1],2) + 
-  #   pow(nimConstants$trapCoords[, 2] - ss[s1,2], 2)
-  d2 <- pow(nimConstants$trapCoords[, 1] - s[1],2) +
-    pow(nimConstants$trapCoords[, 2] - s[2], 2)
-  p[,count] <- p0Trap[,count] * exp(alpha * d2)
-  
-  pdet[count] <- 1-prod( (1-p[,count])^nimConstants$trials[1] )
-# }
-}
-
-mean(pdet[],na.rm=T)
-#0.5955782
-quantile(pdet,probs = c(0.0275,0.975),na.rm=T)
-# 2.75%     97.5% 
-#   0.4956927 0.7075147 
-
-#0.7397374
-# 2.75%     97.5% 
-#   0.6094860 0.8628602
-
-mean(pdet)
-quantile(pdet,probs = c(0.0275,0.975))
-#0.421468
-#0.3198269 0.5375026
-
-
-detPoly <- myDetectors$grid.poly 
-detPoly$p0Trap <- rowMeans(p0Trap)
-detPoly$p <- rowMeans(p)
-
-plot(detPoly["p0Trap"])
-plot(detPoly["p"])
-
-nimData$trapCov
-
-
-pZero <- ilogit(logit(p0) + betaTraps* covTraps)
-for(i in 1:length(myHabitat$habitat.sp)){
-  d2 <- (traplocs[,1]-Sgrid[i,1])^2 + (traplocs[,2]-Sgrid[i,2])^2
-  pvec <-  pZero*exp(-(1/(2*sigma*sigma))*d2)
-  netp[i] <- 1-prod( (1-pvec)^myDetectors$main.detector.sp$count )  # prob of being caught in any trap
-}
-
-
-
-###   ====      15.GOF ####
-iter <- 150
-#RECREATE THE MODEL TO SIMULATE DATA FROM THE POSTERIORS 
-nimData2 <- nimData
-nimData2$sxy <- myResultsSZ$sims.list$sxy[iter,,]
-nimData2$z <- myResultsSZ$sims.list$z[iter,]
-nimData2$p0 <- myResults$sims.list$p0[iter,,]
-nimData2$psi <- myResults$sims.list$psi[iter]
-nimData2$sigma <- myResults$sims.list$sigma[iter,]
-nimData2$betaTraps <- myResults$sims.list$betaTraps[iter,]
-nimData2$habCoeffSlope <- myResults$sims.list$habCoeffSlope[iter,]
-nimData2$deltap0 <- myResults$sims.list$deltap0[iter,]
-nimData2$teta <- myResults$sims.list$teta[iter,]
-nimData2$probMale <- myResults$sims.list$probMale[iter,]
-
-lengthYCombined <- nimConstants$lengthYCombined 
-nimConstants$lengthYCombined <-100
-
-Ytrue <-  nimData$y 
-nimData2$y <- NULL
-
-model <- nimbleModel( code = modelCode,
-                      constants = nimConstants,
-                      data = nimData2,
-                      check = F,
-                      calculate = F)
-cmodel <- compileNimble(model)
-
-cmodel$simulate()
-
-#COMPILE FUNCTION TO CALCULATE EXPECTED P 
-source(file.path("C:/My_documents/rovquant/analyses/Rgit/RovQuant/","Temp/CM/functions/Nimble/calculateP.R"))
-
-calculatePc <- compileNimble(calculateP)
-
-#INITIALIZE OBJECTS
-gof_obs_ik <- gof_sim_ik <- gof_obs_i <- gof_sim_i <- 
-  gof_obs_j <- gof_sim_j <- 0
-
-# SIMULATE DATA FOR xx ITERATIONS 
-niter <- 200
-itera <- sample(dim(myResultsSZ$sims.list$sxy)[1], niter)
-for(iter in 1:niter){
-  print(iter)
-  #FETCH THE POSTEIROS 
-  cmodel$sxy <- myResultsSZ$sims.list$sxy[itera[iter],,]
-  cmodel$z <- myResultsSZ$sims.list$z[itera[iter],]
-  cmodel$p0 <- myResults$sims.list$p0[itera[iter],,]
-  cmodel$psi <- myResults$sims.list$psi[itera[iter]]
-  cmodel$sigma <- myResults$sims.list$sigma[itera[iter],]
-  cmodel$betaTraps <- myResults$sims.list$betaTraps[itera[iter],]
-  cmodel$habCoeffSlope <- myResults$sims.list$habCoeffSlope[itera[iter],]
-  cmodel$deltap0 <- myResults$sims.list$deltap0[itera[iter]]
-  cmodel$teta <- myResults$sims.list$teta[itera[iter]]
-  cmodel$probMale <- myResults$sims.list$probMale[itera[iter]]
-
-  #Simulate
-  cmodel$simulate()
-  
-  ########################
-  ypred <- y <- p <- matrix(0,nrow=dim(cmodel$y)[1],
-                            ncol = nimConstants$n.traps)
-  #reconstruct y #
-  
-  cmodel$y
-  i=4
-  for(i in 1:nimConstants$M){
-    detNums <- cmodel$y[i,1]
-    if(detNums>0){
-      nMaxDetectors <- (nimConstants$lengthYCombined - 1)/2
-      #GET DET INDICES
-      detIndices1 <- cmodel$y[i,(nMaxDetectors + 2):nimConstants$lengthYCombined]
-      detIndices1 <- detIndices1[1:detNums]
-      # GET NUMBER OF DETECTIONS
-      x1 <- cmodel$y[i,2:(nMaxDetectors + 1)]
-      x1 <- x1[1:detNums]
-      
-      ypred[i,detIndices1] <- x1
-      
-    }
-  }
-  
-  sum(ypred)
-  sum(cmodel$y[,1])
-  
-  for(i in 1:nimConstants$M){
-    detNums <- nimData$y[i,1]
-    if(detNums>0){
-      nMaxDetectors <- (lengthYCombined - 1)/2
-      #GET DET INDICES
-      detIndices1 <- nimData$y[i,(nMaxDetectors + 2):lengthYCombined]
-      detIndices1 <- detIndices1[1:detNums]
-      # GET NUMBER OF DETECTIONS
-      x1 <- nimData$y[i,2:(nMaxDetectors + 1)]
-      x1 <- x1[1:detNums]
-      
-      y[i,detIndices1] <- x1
-      
-    }
-  }
-  
-  sum(y)
-  sum(nimData$y[,1])
-  p <- calculatePc(  s = cmodel$sxy
-                     , trapCoords = nimConstants$trapCoords
-                     , betaTraps = cmodel$betaTraps
-                     , p0 = cmodel$p0
-                     , z = cmodel$z
-                     , sigma = cmodel$sigma)
-  
-  # alpha <- -1/(2 * cmodel$sigma[] * cmodel$sigma[])
-  # 
-  # for(i in 1:nimConstants$M){
-  #   if(cmodel$z[i]==0){next}
-  #   s <- cmodel$sxy[i,]
-  #   d2 <- pow(nimConstants$trapCoords[, 1] - s[1], 2) + pow(nimConstants$trapCoords[, 2] - s[2], 2)
-  #   print(i)
-  #     for(j in 1:nimConstants$n.traps){
-  #      p0Trap <- ilogit(logit(cmodel$p0[1]) + inprod(cmodel$trapCov[j,], cmodel$betaTraps))
-  #    }
-  #  p[i,] <- p0Trap * exp(alpha * d2[])
-  # 
-  # }
-  
-  ##subset to detected ID 
-  pexpected <- p[cmodel$z[]>0,]
-  dim(pexpected)
-  
-  # Expected dets 
-  EY <- pexpected#apply(test_stats$expected, c(1,3), sum)
-  # Y true observations#
-  OYobs <- y[cmodel$z[]>0,] # rbind(apply(tmp_object$capthist,c(1,3),sum),
-  #      matrix(0,ntot-nind,nrow(traps(tmp_object$capthist))))
-  # Simulated Y 
-  OYsim <- ypred[cmodel$z[]>0,]#apply(newCH,c(1,3),sum)
-  
-  #
-  gof_obs_ik[iter] <- FT_stat(OYobs, EY)
-  gof_sim_ik[iter] <- FT_stat(OYsim, EY)
-  
-  ## Test: individual
-  EY2 <- apply(pexpected,1,sum)
-  OYobs2 <- apply(OYobs,1,sum)
-  OYsim2 <- apply(OYsim,1,sum)
-  gof_obs_i[iter] <- FT_stat(OYobs2, EY2)
-  gof_sim_i[iter] <- FT_stat(OYsim2, EY2)
-  
-  ## Test: traps
-  EY3 <-  apply(pexpected,2,sum)
-  OYobs3 <- apply(OYobs,2,sum)
-  OYsim3 <- apply(OYsim,2,sum)
-  gof_obs_j[iter] <- FT_stat(OYobs3, EY3)
-  gof_sim_j[iter] <- FT_stat(OYsim3, EY3)
-  
-}
-
-pdf(file=file.path(myVars$WD,"output",myVars$modelName,"GOF.pdf"))
-par(mfrow = c(2, 2), oma = c(0, 0, 0, 0))
-mm <- c(min(c(gof_sim_ik, gof_obs_ik)), max(c(gof_sim_ik, 
-                                              gof_obs_ik)))
-clr <- ifelse(gof_sim_ik > gof_obs_ik, adjustcolor("navy", 
-                                                   0.5), adjustcolor("darkgreen", 0.5))
-plot(gof_sim_ik, gof_obs_ik, pch = 16, col = clr, las = 1, 
-     asp = 1, xlim = c(mm[1], mm[2]), ylim = c(mm[1], mm[2]), 
-     main = paste("pr(sim > obs):", round(mean(gof_sim_ik > 
-                                                 gof_obs_ik), 2)))
-abline(0, 1, col = 2, lwd = 2)
-mm <- c(min(c(gof_sim_i, gof_obs_i)), max(c(gof_sim_i, gof_obs_i)))
-clr <- ifelse(gof_sim_i > gof_obs_i, adjustcolor("navy", 
-                                                 0.5), adjustcolor("darkgreen", 0.5))
-plot(gof_sim_i, gof_obs_i, pch = 16, col = clr, las = 1, 
-     asp = 1, xlim = c(mm[1], mm[2]), ylim = c(mm[1], mm[2]), 
-     main = paste("pr(sim > obs):", round(mean(gof_sim_i > 
-                                                 gof_obs_i), 2)))
-abline(0, 1, col = 2, lwd = 2)
-mm <- c(min(c(gof_sim_j, gof_obs_j)), max(c(gof_sim_j, gof_obs_j)))
-clr <- ifelse(gof_sim_j > gof_obs_j, adjustcolor("navy", 
-                                                 0.5), adjustcolor("darkgreen", 0.5))
-plot(gof_sim_j, gof_obs_j, pch = 16, col = clr, las = 1, 
-     asp = 1, xlim = c(mm[1], mm[2]), ylim = c(mm[1], mm[2]), 
-     main = paste("pr(sim > obs):", round(mean(gof_sim_j > 
-                                                 gof_obs_j), 2)))
-abline(0, 1, col = 2, lwd = 2)
-scr_gof1nimbleSCR <- 
-  list(scrgof_pval = c(`FT-ind-trap` = mean(gof_sim_ik > 
-                                              gof_obs_ik), `FT-individuals` = mean(gof_sim_i > gof_obs_i), 
-                       `FT-traps` = mean(gof_sim_j > gof_obs_j)),
-       gof_ik = data.frame(simulated = gof_sim_ik, 
-                           observed = gof_obs_ik), 
-       gof_i = data.frame(simulated = gof_sim_i, observed = gof_obs_i), 
-       gof_j = data.frame(simulated = gof_sim_j, observed = gof_obs_j))
-
-dev.off()
-
-####
-scr_gof <- scrgof(model.0, nsamp = niter)
-
-scr_gof$gof_ik$observed
-
-
-###try close SCR
-library(Rcapture) # https://www.jstatsoft.org/article/view/v019i05
-wolf <- table(DNA$Id,DNA$mois)
-wolf <- wolf[,c(4,5,1,2,3)]
-wolf[wolf>0] <- 1
-
-closedp.0(wolf)
-closedp.t(wolf)
 
