@@ -1,3 +1,6 @@
+# R code to reproduce the analysis contained in the paper from Milleret et al.
+#Estimating wolf population size in France "using non-invasive genetic sampling and spatial capture recapture model
+
 rm(list=ls())
 #LOAD PACKAGES
 library(nimble)
@@ -10,34 +13,27 @@ library(R.utils)
 library(basicMCMCplots)
 library(coda)
 library(tidyverse)
-library(Rcpp)
-library(RcppArmadillo)
-library(RcppProgress)
+
 ### ==== 1. GENERAL VARIABLES DECLARATION ====
 myVars <- list(
   ## WORKING DIRECTORY & MODEL NAME
-  # WD = "C:/My_documents/NIMBLE/WOLVERINE",
+  # set your working directory here
   WD = "C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance",
-  # modelName = "s31_[W,Hum,Gras,F]sigma[sex]p0[reg[dpt1],geaco,snow,rds.indcov[prev,sex]Loc2024FinalToPublish",
-  
   # HABITAT SPECIFICATIONS
-  HABITAT = list( habResolution = 10000,
-                  habBuffer = 20000),
+  HABITAT = list(habBuffer = 20000),
   
   # NGS DATA SPECIFICATIONS
   DATA = list( years = 2024,
-               sex = c("F","M"),                   ## "Hann","Hunn","Ukjent"
-               samplingMonths = list(11,12,1:3)), ## list(10:12,1:4), list(1:XXX), list(XX:XX,YY:YY)
+               sex = c("F","M"),                   
+               samplingMonths = list(11,12,1:3)), 
   
   # DETECTORS SPECIFICATIONS
   DETECTORS = list( detSubResolution = 1000,
-                    detResolution = 5000,
-                    detDeadResolution = 15000),
+                    detResolution = 5000
+  ),
   
   # DATA GENERATION
-  DETECTIONS = list( maxDetDist = 40000,
-                     resizeFactor = 0,
-                     aug.factor = 4),
+  DETECTIONS = list(aug.factor = 4),
 
   ## MISCELLANEOUS
   plot.check = TRUE)
@@ -50,10 +46,12 @@ YEARS <- lapply(years, function(x)c(x,x+1))
 ##source functions
 sourceDirectory(file.path(myVars$WD,"Functions"), modifiedOnly = FALSE)
 
+
+
 ## ==== 1. LOAD DATA ####
 ## ====  1.1 DNA DATA ####
 ## ====   1.1.1 ALIVE DATA ####
-load(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/DNA.RData")
+load(file.path(myVars$WD,"/Data/DNA.RData"))
 
 ## ====  1.2 GIS DATA ####
 ## ====   1.2.1 10*10 km SAMPLING GRID #####
@@ -84,33 +82,7 @@ plot(Region$geometry,add=T,col="red")
 
 
 
-## ====   1.2.8 LCIE WOLF DISTRIBUTION #####
-#2018 DISTRIBUTION MAP 
-# LCIEDistribution <- read_sf(file.path(myVars$WD,"GIS","LCIE_wolfDistribution","2018_06_06_Wolf_IUCN_RedList.shp"))
-# str(LCIEDistribution)
-# LCIEDistribution$SPOIS <- ifelse(LCIEDistribution$SPOIS %in% "Sporadic",1,3)
-#2022 DISTRIBUTION MAP 
-# LCIEDistribution2012permanent <- read_sf(file.path(myVars$WD,"GIS","LCIE_wolfDistribution","Wolf_LCIE_2012","Clip_2012_12_01_Wolves_permanent.shp"))
-# LCIEDistribution2012permanent$SPOIS <- 3
-# LCIEDistribution2012sporadic <- read_sf(file.path(myVars$WD,"GIS","LCIE_wolfDistribution","Wolf_LCIE_2012","Clip_2012_12_01_Wolves_sporadic.shp"))
-# LCIEDistribution2012sporadic$SPOIS <- 1
-# LCIEDistribution2012 <- rbind(LCIEDistribution2012permanent, LCIEDistribution2012sporadic)
-# plot(LCIEDistribution2012["SPOIS"])
-# 
-# LCIEDistribution2012 <- st_transform(LCIEDistribution2012, crs=st_crs(DNA))
-# LCIEDistribution <- st_transform(LCIEDistribution, crs=st_crs(DNA))
-# 
-# # Both grids classified wolf presence as sporadic or permanent (we scored 1 for sporadic and 3 for permanent). In a second step,
-# #we summed the two grids (weighted by the area overlap between the 10km LCIE grid and the 5km habitat grid used in the model) 
-# #to create an index of the historical presence of wolves in each 
-# #habitat grid cell (from 0, no wolf presence registered in the two periods, to 6, permanent presence during the two periods).
-# plot(France$geometry)
-# plot(LCIEDistribution2012["SPOIS"],add=T)
-# 
-# str(LCIEDistribution)
-# plot(st_transform(LCIEDistribution,st_crs(Europe))$geometry,add=T)
-# LCIEDistribution <- st_transform(LCIEDistribution,crs = st_crs(DNA))
-
+## ====   1.2.6 LCIE WOLF DISTRIBUTION #####
 # DATA AND SCRIPT FROM MARRUCCO ET AL  
 iucn_2012_1 <- read_sf(file.path(myVars$WD,"Data","LCIE_wolfDistribution","Wolf_LCIE_2012","Clip_2012_12_01_Wolves_permanent.shp"))
 iucn_2012_1$SPOIS <- 3
@@ -130,8 +102,8 @@ plot(iucn_2018[ ,"SPOIS"], add = T)
 ## Code back to numeric
 iucn_2018$SPOIS <- ifelse(iucn_2018$SPOIS == "Sporadic", 1, 3)
 
-## ====   1.2.9 EFFORT #####
-## ====     1.2.9.1 POTENTIAL Baduin et al 2023 #####
+## ====   1.2.7 EFFORT #####
+## ====     1.2.7.1 POTENTIAL Baduin et al 2023 #####
 #LOAD GRID
 load(file.path(myVars$WD, "Data","Effort","gridFr.RData"))
 EffortGrid <- st_as_sf(gridFr)
@@ -144,92 +116,32 @@ EffortGrid$value <- effort$eff_2020_2021
 plot(EffortGrid["value"]$geometry)
 plot(EffortGrid["value"])
 plot(DNA$geometry,add=T,col="black")
-# ## ====     1.2.9.2 GEACO #####
-# effort <- read.csv(file.path(myVars$WD, "GIS","EffortOFB","Bilan2021mars2024.csv"), 
-#                    fileEncoding="latin1")
-# ##CONVERT TIME AND SEASON ##
-# effort$date1 <- as.POSIXct(strptime(effort$Date, "%d/%m/%Y"))
-# effort <- effort[!is.na(effort$date1 ),]
-# effort$Year <- as.numeric(format(effort$date1,"%Y"))
-# effort$mois <- as.numeric(format(effort$date1,"%m"))
-# effort$saisonyear <- ifelse(effort$mois < 11, effort$Year, effort$Year+1) #--- need to change for other species
-# #MAKE IT NUMERIC
-# effort$Heures <- as.numeric(effort$Heures)
-# #SUBSET TO SEASON OF INTEREST
-# #MONTHS
-# effort <- effort[effort$mois %in% unlist(myVars$DATA$samplingMonths),]
-# #YEARS
-# effort <- effort[effort$saisonyear %in% myVars$DATA$years ,]
-# #CHECK 
-# effort$date1
-# # subset unknown commune
-# effort <- effort[!effort$Code.Insee %in% "-",]
-# effort$insee <- effort$Code.Insee
-# 
-# #summarize per communes 
-# df <- 
-#   effort %>%
-#   group_by(saisonyear,insee) %>%
-#   summarize(#across(saisonyear,list(
-#     n = n(),
-#     sum = sum(Heures),
-#     logSum = log(sum(Heures))
-#     
-#   )
-# 
-# 
-# #mergeCommunes
-# Communes <- merge(Communes,df,by="insee")
-
-# save(Communes,file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/Geaco.RData")
-load("C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/Geaco.RData")
+## ====     1.2.7.2 GEACO #####
+load(file.path(myVars$WD,"Data/Geaco.RData"))
 mapview::mapview(Communes["n"],border=NA)
 
-## ====   1.2.10 SNOW #####
-# dropbox <- "C:/Users/cymi/Dropbox (Old)/AQEG Dropbox/AQEG Team Folder/RovQuant/DATA/"
-# SNOW <- stack(paste(dropbox,"/GISData/SNOW/ModisSnowCover0.1degrees/AverageSnowCoverModisSeason2008_2024_Wolf.tif", sep=""))
-# SNOW <- stack(file.path(myVars$WD,"GIS","SNOW","AverageSnowCoverModisSeason2008_2024_Wolf.tif"))
-# 
-# ## RENAME THE LAYERS
-# names(SNOW) <- paste(2008:2023,(2008:2023)+1, sep="_")
-# ## SELECT SNOW DATA CORRESPONDING TO THE MONITORING PERIOD
-# SNOW <- SNOW[[paste("X", myVars$DATA$years-1, "_", myVars$DATA$years, sep="")]]
-# SNOW <- raster::crop(SNOW, st_transform(Europe,crs = st_crs(SNOW)))
-
-# save(SNOW,file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/SNOW.RData")
-load("C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/SNOW.RData")
-
-## ====   1.2.11 HUMAN DENSITY #####
-# HumanDensity1 <- raster(file.path(myVars$WD,"GIS","HumanDensity","GHS_POP_E2020_GLOBE_R2023A_54009_1000_V1_0_R4_C19.tif"))
-# HumanDensity2 <- raster(file.path(myVars$WD,"GIS","HumanDensity","GHS_POP_E2020_GLOBE_R2023A_54009_1000_V1_0_R4_C18.tif"))
-# HumanDensity <- merge(HumanDensity2, HumanDensity1)
-
-# save(HumanDensity,file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/HumanDensity.RData")
-load("C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/HumanDensity.RData")
+## ====   1.2.8 SNOW #####
+load(file.path(myVars$WD,"Data/SNOW.RData"))
+plot(SNOW)
+## ====   1.2.9 HUMAN DENSITY #####
+load(file.path(myVars$WD,"Data/HumanDensity.RData"))
 
 plot(HumanDensity)
 #use focal to get an approx 10km resolution 
 plot(log(HumanDensity))
 plot(France$geometry,add=T)
 
-## ====   1.2.12 ROAD DENSITY #####
-#LENGTH OF ROADS 
-# load(file.path(myVars$WD,"GIS","Roads","Roads1.RData"))#ROADS1 IS THE GOOD ONE
-# roads <- aggregate(roads1,fact=10)
-# plot(roads)
+## ====   1.2.10 ROAD DENSITY #####
+load(file.path(myVars$WD,"Data/roads.RData"))
 
-# save(roads,file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/roads.RData")
-load("C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/roads.RData")
-
-## ====   1.2.13 FOREST #####
+## ====   1.2.11 FOREST #####
 #Corinne land cover data should be downloaded https://land.copernicus.eu/en/products/corine-land-cover
+#Layers are not provided given their size 
 #CLC CLIPPED TO FRANCE IN QGIS
-CLC_FR <- st_read(file.path("C:/Personal_Cloud/OneDrive/Work/CNRS/SCR","GIS","CLC","u2018_clc2018_v2020_20u1_fgdb","CLC_FR.shp"))
-
-CLCForest <- CLC_FR[CLC_FR$Code_18 %in% c("311", "312", "313"),]
-## ====   1.2.14 GRASSLAND #####
-CLCGrassland <- CLC_FR[CLC_FR$Code_18 %in% c("321", "322", "324"),]
-
+# CLC_FR <- st_read(file.path("C:/Personal_Cloud/OneDrive/Work/CNRS/SCR","GIS","CLC","u2018_clc2018_v2020_20u1_fgdb","CLC_FR.shp"))
+# CLCForest <- CLC_FR[CLC_FR$Code_18 %in% c("311", "312", "313"),]
+# ## ====   1.2.12 GRASSLAND #####
+# CLCGrassland <- CLC_FR[CLC_FR$Code_18 %in% c("321", "322", "324"),]
 
 ## ==== 2. Check NGS DATA ####
 barplot(table(DNA$Year))
@@ -238,9 +150,8 @@ NDet <- tapply(DNA$Id, DNA$Id, length)
 mean(NDet)
 
 
-## ====     2.3.2 PLOT AND SUMMARY TO CHECK EVERYTHING IS BEING USED ####
+## ====     2.1 PLOT AND SUMMARY TO CHECK EVERYTHING IS BEING USED ####
 nrow(DNA)
-
 plot(France$geometry)
 plot(DNA$geometry,pch=16, cex=0.5, col="red",add=T)
 
@@ -254,11 +165,6 @@ matDets[,"Total"] <- rowSums(matDets,na.rm=T)
 matDets["Total",] <- colSums(matDets,na.rm=T)
 
 apply(table(DNA$Id,DNA$SEXE),2,function(x) sum(x>0))
-
-
-###
-# DNA <- DNA[,c(11,17:21)]
-# save(DNA, file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance/Data/DNA.RData")
 
 
 ## ==== 3. GENERATE HABITAT ====
@@ -355,7 +261,7 @@ plot(tmp$geometry,add=T,pch=16)
 tmpsub <- myDetectors$detector.sf[myDetectors$detector.sf$main.cell.id%in%4835,]
 plot(tmpsub$geometry,add=T,col="red")
 ## ==== 4. GENERATE HABITAT-LEVEL COVARIATES ====
-## ====   4.2 WOLF PRESENCE ====
+## ====   4.1 WOLF PRESENCE ====
 ## EXTRACT WOLF PERMANENT PRESENCE  IN EACH HABITAT CELL
 habitatGrid  <- sf::st_as_sf(stars::st_as_stars(template.rSpa), 
                     as_points = FALSE, merge = F)
@@ -405,7 +311,7 @@ plot(habitatGrid[,"IUCN"])
 
 habitatGrid$IUCN <- scale(habitatGrid$IUCN)
 
-## ====   4.3 HUMAN DENSITY ====
+## ====   4.2 HUMAN DENSITY ====
 habitatxysf1 <- st_transform(habitatxysf, st_crs(HumanDensity))
 HumanCov1 <- raster::extract( HumanDensity, 
                              habitatxysf1,
@@ -417,42 +323,45 @@ plot(HumanDensity)
 sum(is.na(HumanCov))
 
 
-## ====   4.4 PROPORTION OF FOREST ====
-habitatSF.pol1 <- st_transform(habitatSF.pol, st_crs(CLCForest))
-habitatSF.pol1$ID <- 1:nrow(habitatSF.pol1) 
+## ====   4.3 PROPORTION OF FOREST ====
+# habitatSF.pol1 <- st_transform(habitatSF.pol, st_crs(CLCForest))
+# habitatSF.pol1$ID <- 1:nrow(habitatSF.pol1)
+# 
+# cellForest <- st_intersection(habitatSF.pol1 , CLCForest) %>%
+#   mutate(areaInter = st_area(.)) %>%
+#   group_by(ID) %>%
+#   summarise(areaforestCell = sum(areaInter)) %>%
+#   mutate(propForestCell = areaforestCell / sizehabitatCell) %>%
+#   as_tibble() %>%
+#   select(ID, propForestCell)
+# 
+# #PLOT CHECK
+# forest.r <- habitat.r
+# forest.r[] <- 0
+# 
+# forest.r[which(!is.na(habitat.r[]))[cellForest$ID]] <- cellForest$propForestCell
+# plot(forest.r)
 
-cellForest <- st_intersection(habitatSF.pol1 , CLCForest) %>%
-  mutate(areaInter = st_area(.)) %>%
-  group_by(ID) %>%
-  summarise(areaforestCell = sum(areaInter)) %>%
-  mutate(propForestCell = areaforestCell / sizehabitatCell) %>%
-  as_tibble() %>%
-  select(ID, propForestCell)
+## ====   4.4 PROPORTION OF GRASSLAND ====
+# cellGrassland <- st_intersection(habitatSF.pol1 , CLCGrassland) %>%
+#   mutate(areaInter = st_area(.)) %>%
+#   group_by(ID) %>%
+#   summarise(areaGrasslandCell = sum(areaInter)) %>%
+#   mutate(propGrasslandCell = areaGrasslandCell / sizehabitatCell) %>%
+#   as_tibble() %>%
+#   select(ID, propGrasslandCell)
+# #plot#check
+# grassland.r <- habitat.r
+# grassland.r[] <- 0
+# 
+# grassland.r[which(!is.na(habitat.r[]))[cellGrassland$ID]] <- cellGrassland$propGrasslandCell
+# plot(grassland.r)
 
-#PLOT CHECK  
-forest.r <- habitat.r
-forest.r[] <- 0
-
-forest.r[which(!is.na(habitat.r[]))[cellForest$ID]] <- cellForest$propForestCell
-plot(forest.r)
-
-## ====   4.5 PROPORTION OF GRASSLAND ====
-cellGrassland <- st_intersection(habitatSF.pol1 , CLCGrassland) %>%
-  mutate(areaInter = st_area(.)) %>%
-  group_by(ID) %>%
-  summarise(areaGrasslandCell = sum(areaInter)) %>%
-  mutate(propGrasslandCell = areaGrasslandCell / sizehabitatCell) %>%
-  as_tibble() %>%
-  select(ID, propGrasslandCell)
-#plot#check 
-grassland.r <- habitat.r
-grassland.r[] <- 0
-
-grassland.r[which(!is.na(habitat.r[]))[cellGrassland$ID]] <- cellGrassland$propGrasslandCell
-plot(grassland.r)
+# save(grassland.r,forest.r, file=file.path(myVars$WD,"Data","ForestGrasslandRaster.RData"))
+load(file.path(myVars$WD,"Data","ForestGrasslandRaster.RData"))
 
 
-## ====   4.4 BIND COVARIATES ====
+## ====   4.5 BIND COVARIATES ====
 habCovs <-  cbind(habitatGrid$IUCN,
                   log(HumanCov+0.0001),
                   grassland.r[!is.na(habitat.r[])],
@@ -596,7 +505,7 @@ if(length(isna)>0){
 }
 tmpr[!is.na(tmpr[])]<- RoadCov
 plot(tmpr)
-## ====   5.2 BIND COVARIATES ====
+## ====   5.5 BIND COVARIATES ====
 trapCov <- scale(cbind(myDetectors$grid.poly$nbVisits , snowCov, log(RoadCov)))
 colnames(trapCov) <- c("Effort","Snow","Roads")
 
