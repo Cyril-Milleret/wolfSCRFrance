@@ -13,12 +13,14 @@ library(R.utils)
 library(basicMCMCplots)
 library(coda)
 library(tidyverse)
+library(RANN)
+
+## WORKING DIRECTORY & MODEL NAME
+# set your working directory here
+WD <- "C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance"
 
 ### ==== 1. GENERAL VARIABLES DECLARATION ====
 myVars <- list(
-  ## WORKING DIRECTORY & MODEL NAME
-  # set your working directory here
-  WD = "C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/SCRWolfFrance",
   # HABITAT SPECIFICATIONS
   HABITAT = list(habBuffer = 20000),
   
@@ -44,21 +46,21 @@ YEARS <- lapply(years, function(x)c(x,x+1))
 
 
 ##source functions
-sourceDirectory(file.path(myVars$WD,"Functions"), modifiedOnly = FALSE)
+sourceDirectory(file.path(WD,"Functions"), modifiedOnly = FALSE)
 
 
 
 ## ==== 1. LOAD DATA ####
 ## ====  1.1 DNA DATA ####
 ## ====   1.1.1 ALIVE DATA ####
-load(file.path(myVars$WD,"/Data/DNA.RData"))
+load(file.path(WD,"/Data/DNA.RData"))
 
 ## ====  1.2 GIS DATA ####
 ## ====   1.2.1 10*10 km SAMPLING GRID #####
-grid1010 <- read_sf(file.path(myVars$WD,"Data","Indices_biologiques_recolte_Hiver2021_2022_grid_10x10km_03102023.shp"))
+grid1010 <- read_sf(file.path(WD,"Data","Indices_biologiques_recolte_Hiver2021_2022_grid_10x10km_03102023.shp"))
 st_crs(DNA) <- st_crs(grid1010)
 ## ====   1.2.2 EUROPE ####
-Europe <- read_sf(file.path(myVars$WD,"Data","EuropeCountries"))
+Europe <- read_sf(file.path(WD,"Data","EuropeCountries"))
 ##subset to neighboring countries 
 Europe <- Europe[Europe$NAME %in%c("France","Spain","Italy","Switzerland","Germany","Luxembourg","Belgium","Andorra","Monaco"),]
 Europe <- st_transform(Europe,crs = st_crs(DNA))
@@ -69,13 +71,13 @@ plot(Europe$geometry)
 plot(DNA$geometry,add=T,col="red")
 
 ## ====   1.2.4 DEPARTEMENT #####
-Departement <- read_sf(file.path(myVars$WD,"Data","departements-20180101-shp","departements-20180101.shp"))
+Departement <- read_sf(file.path(WD,"Data","departements-20180101-shp","departements-20180101.shp"))
 Departement <- st_transform(Departement,crs = st_crs(DNA))
 
 plot(Departement$geometry,add=T)
 
 ## ====   1.2.5 REGION #####
-Region <- read_sf(file.path(myVars$WD,"Data","Region","regions_2015_metropole_region.shp"))
+Region <- read_sf(file.path(WD,"Data","Region","regions_2015_metropole_region.shp"))
 Region <- st_transform(Region,crs = st_crs(DNA))
 
 plot(Region$geometry,add=T,col="red")
@@ -84,18 +86,18 @@ plot(Region$geometry,add=T,col="red")
 
 ## ====   1.2.6 LCIE WOLF DISTRIBUTION #####
 # DATA AND SCRIPT FROM MARRUCCO ET AL  
-iucn_2012_1 <- read_sf(file.path(myVars$WD,"Data","LCIE_wolfDistribution","Wolf_LCIE_2012","Clip_2012_12_01_Wolves_permanent.shp"))
+iucn_2012_1 <- read_sf(file.path(WD,"Data","LCIE_wolfDistribution","Wolf_LCIE_2012","Clip_2012_12_01_Wolves_permanent.shp"))
 iucn_2012_1$SPOIS <- 3
 iucn_2012_1 <- st_transform(iucn_2012_1, st_crs(DNA))
 plot(st_geometry(DNA))
 plot(st_geometry(iucn_2012_1), add = T, col = "lightskyblue4")
 
-iucn_2012_2 <- read_sf(file.path(myVars$WD,"Data","LCIE_wolfDistribution","Wolf_LCIE_2012","Clip_2012_12_01_Wolves_sporadic.shp"))
+iucn_2012_2 <- read_sf(file.path(WD,"Data","LCIE_wolfDistribution","Wolf_LCIE_2012","Clip_2012_12_01_Wolves_sporadic.shp"))
 iucn_2012_2$SPOIS <- 1
 iucn_2012_2 <- st_transform(iucn_2012_2, st_crs(DNA))
 plot(st_geometry(iucn_2012_2), add = T, col = "lightskyblue2")
 
-iucn_2018 <- read_sf(file.path(myVars$WD,"Data","LCIE_wolfDistribution","2018_06_06_Wolf_IUCN_RedList.shp"))
+iucn_2018 <- read_sf(file.path(WD,"Data","LCIE_wolfDistribution","2018_06_06_Wolf_IUCN_RedList.shp"))
 iucn_2018 <- st_transform(iucn_2018, st_crs(DNA))
 plot(st_geometry(DNA))
 plot(iucn_2018[ ,"SPOIS"], add = T)
@@ -103,13 +105,13 @@ plot(iucn_2018[ ,"SPOIS"], add = T)
 iucn_2018$SPOIS <- ifelse(iucn_2018$SPOIS == "Sporadic", 1, 3)
 
 ## ====   1.2.7 EFFORT #####
-## ====     1.2.7.1 POTENTIAL Baduin et al 2023 #####
+## ====     1.2.7.1 POTENTIAL Bauduin et al 2023 #####
 #LOAD GRID
-load(file.path(myVars$WD, "Data","Effort","gridFr.RData"))
+load(file.path(WD, "Data","Effort","gridFr.RData"))
 EffortGrid <- st_as_sf(gridFr)
 EffortGrid <- st_transform(EffortGrid,crs = st_crs(DNA))
 #LOAD EFFORT VALUES FROM SARAH
-load(file.path(myVars$WD, "Data","Effort","effort.RData"))
+load(file.path(WD, "Data","Effort","effort.RData"))
 #FILL IN EFFORT VALUE
 EffortGrid$value <- effort$eff_2020_2021
 #plot
@@ -117,14 +119,14 @@ plot(EffortGrid["value"]$geometry)
 plot(EffortGrid["value"])
 plot(DNA$geometry,add=T,col="black")
 ## ====     1.2.7.2 GEACO #####
-load(file.path(myVars$WD,"Data/Geaco.RData"))
+load(file.path(WD,"Data/Geaco.RData"))
 mapview::mapview(Communes["n"],border=NA)
 
 ## ====   1.2.8 SNOW #####
-load(file.path(myVars$WD,"Data/SNOW.RData"))
+load(file.path(WD,"Data/SNOW.RData"))
 plot(SNOW)
 ## ====   1.2.9 HUMAN DENSITY #####
-load(file.path(myVars$WD,"Data/HumanDensity.RData"))
+load(file.path(WD,"Data/HumanDensity.RData"))
 
 plot(HumanDensity)
 #use focal to get an approx 10km resolution 
@@ -132,7 +134,7 @@ plot(log(HumanDensity))
 plot(France$geometry,add=T)
 
 ## ====   1.2.10 ROAD DENSITY #####
-load(file.path(myVars$WD,"Data/roads.RData"))
+load(file.path(WD,"Data/roads.RData"))
 
 ## ====   1.2.11 FOREST #####
 #Corinne land cover data should be downloaded https://land.copernicus.eu/en/products/corine-land-cover
@@ -357,8 +359,8 @@ sum(is.na(HumanCov))
 # grassland.r[which(!is.na(habitat.r[]))[cellGrassland$ID]] <- cellGrassland$propGrasslandCell
 # plot(grassland.r)
 
-# save(grassland.r,forest.r, file=file.path(myVars$WD,"Data","ForestGrasslandRaster.RData"))
-load(file.path(myVars$WD,"Data","ForestGrasslandRaster.RData"))
+# save(grassland.r,forest.r, file=file.path(WD,"Data","ForestGrasslandRaster.RData"))
+load(file.path(WD,"Data","ForestGrasslandRaster.RData"))
 
 
 ## ====   4.5 BIND COVARIATES ====
@@ -584,7 +586,7 @@ table(sex,useNA="always")
 
 ## ====   8.2 PREVIOUS DETECTION ====
 #check if individuals was detected during the previous years 3 years
-load(file.path(myVars$WD,"Data/DNAAllPev.RData"))
+load(file.path(WD,"Data/DNAAllPev.RData"))
 
 #SOME CHECKS 
 tab1 <- table(DNAAllPev$Id,DNAAllPev$saisonyear)
@@ -804,7 +806,7 @@ sxy.init <- getSInits( AllDetections = rbind(myData.alivetmp,tmp1),
 
 
 # get the cells that in France to extract abundance. 
-load(file.path(myVars$WD,"Data",
+load(file.path(WD,"Data",
                paste("cellInFrance", ".RData", sep = "")))
 
 ## ====   13.4 SOTHER INITS VALUES ====
@@ -865,13 +867,6 @@ nimParams <- c("N","sigma","psi",
 nimParams2 <- c("sxy","z")
 
 ## ==== 18. SAVE MODEL  ====
-save(nimData,
-     nimConstants,
-     nimParams,
-     nimParams2,
-     modelCode,
-     nimInits,
-     file = file.path(myVars$WD,"Data","model.RData", sep = ""))
 
 
 ## ==== 19. BUILD AND FIT MODEL  ====
@@ -899,21 +894,52 @@ cMCMC <- compileNimble(MCMC, project = model, resetFunctions = TRUE)
 ## Run MCMC
 MCMCRuntime <- system.time(samples <- runMCMC( mcmc = cMCMC,
                                                nburnin = 100,
-                                               niter = 500,#run for longer
+                                               niter = 500,#run for longer# 500 iterations= 10 mins(M1, RAM= 64Go)
                                                nchains = 2,
                                                samplesAsCodaMCMC = TRUE))
+### to access to full posterior, you can download them here: 
+#https://sdrive.cnrs.fr/s/oCPC6mdeNtemXjZ
+#Once loaded they can be loaded:
+load("Posteriors.RData")
 
-###
-
+#process the nimbleoutput to get array of posteriors
 myResults <- ProcessCodaOutput(samples$samples,params.omit = c("sxy","z"))
+myResultsSZ <- ProcessCodaOutput(samples$samples2,params.omit = c("sxy","z"))
+
+
+#check convergence 
+#CHECK RHAT
+myResults$Rhat
+# visual check convergence of parameters 
+basicMCMCplots::chainsPlot(samples$samples,var=c("N","betaTraps[1]" ,"betaTraps[2]","betaTraps[3]",  "habCoeffSlope[1]",
+                                                 "habCoeffSlope[2]","habCoeffSlope[3]" ,"habCoeffSlope[4]" ,"indBetas[1]","indBetas[2]"))
+
+basicMCMCplots::chainsPlot(samples$samples,var=c("p0[1]", "p0[2]", "p0[3]", "p0[4]",  "p0[5]",
+                                                 "p0[6]", "p0[7]", "p0[8]", "p0[9]",  "probMale",
+                                                 "psi", "sigma", "teta"))
+
+
+# Extract abundance only within the french boundary
+# Compile function to do it outside of nimble model from sxy and z
+CcalculateDensity <- compileNimble(calculateDensity)
+
+dens <- list()
+NFrance <- 0
+#loop through each iterations
+for(i in 1:dim(myResultsSZ$sims.list$sxy)[1]){
+dens[[i]] <- CcalculateDensity(s = myResultsSZ$sims.list$sxy[i, ,], 
+                                            habitatGrid = nimConstants$habitatGrid, 
+                                            indicator = myResultsSZ$sims.list$z[i, ], numWindows = nimConstants$numHabWindows,
+                                            nIndividuals = nimConstants$M)  
+NFrance[i] <-  sum(dens[[i]][nimConstants$HabWindowsFr])
+}
 
 ## abundance estimates
-myResults$mean$NFrance
-myResults$q2.5$NFrance
-myResults$q97.5$NFrance
+mean(NFrance)
+quantile(NFrance, probs=c(0.025,0.975))
 
-#visual check of convergence
-basicMCMCplots::chainsPlot(samples$samples,"NFrance")
+
+
 ## reproduce figures ##
 hab.r <- habitat.r
 det.r <- detector.r
@@ -935,7 +961,6 @@ gg <- gg[order(gg$area,decreasing = T),]
 plot(gg[1,]$geometry,col=grey(0.8))
 #add legend 
 #### HABITAT 
-# pdf(file="C:/Personal_Cloud/OneDrive/Work/CNRS/Papers/SCRWolfFrance/Figure/FigureS1HabCov.pdf",width = 9,height = 8)
 par(mfrow=c(2,2),mar=c(1,1,1,1.5))
 plot(box,border=NA)
 plot(gg[1,]$geometry,col=grey(0.8),add=T)
