@@ -54,7 +54,7 @@ sourceDirectory(file.path(WD,"Functions"), modifiedOnly = FALSE)
 ## ====  1.1 DNA DATA ####
 ## ====   1.1.1 ALIVE DATA ####
 load(file.path(WD,"/Data/DNA.RData"))
-
+write.csv(DNA,file = file.path(WD,"/Data/DNA.csv"))
 ## ====  1.2 GIS DATA ####
 ## ====   1.2.1 10*10 km SAMPLING GRID #####
 grid1010 <- read_sf(file.path(WD,"Data","Indices_biologiques_recolte_Hiver2021_2022_grid_10x10km_03102023.shp"))
